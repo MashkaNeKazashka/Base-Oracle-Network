@@ -1,27 +1,20 @@
 Base Oracle Network
+
 📋 Project Description
+
 Base Oracle Network is a decentralized oracle network that provides reliable and secure price feeds and data services for DeFi applications on the Base network. The network aggregates data from multiple sources to ensure accuracy and prevent manipulation.
 
 🔧 Technologies Used
+
 Programming Language: Solidity 0.8.0
 Framework: Hardhat
 Network: Base Network
 Standards: ERC-20
 Libraries: OpenZeppelin, Chainlink
+
+
 🏗️ Project Architecture
 
-
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
 base-oracle-network/
 ├── contracts/
 │   ├── OracleNetwork.sol
@@ -33,39 +26,22 @@ base-oracle-network/
 ├── hardhat.config.js
 ├── package.json
 └── README.md
+
+
 🚀 Installation and Setup
+
 1. Clone the repository
-bash
-
-
-1
-2
-git clone https://github.com/yourusername/base-oracle-network.git
+git clone https://github.com/MashkaNeKazashka/Base-Oracle-Network.git
 cd base-oracle-network
 2. Install dependencies
-bash
-
-
-1
 npm install
 3. Compile contracts
-bash
-
-
-1
 npx hardhat compile
 4. Run tests
-bash
-
-
-1
 npx hardhat test
 5. Deploy to Base network
-bash
-
-
-1
 npx hardhat run scripts/deploy.js --network base
+
 💰 Features
 Core Functionality:
 ✅ Price feed aggregation
