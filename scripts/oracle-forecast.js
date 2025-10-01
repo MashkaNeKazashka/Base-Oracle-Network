@@ -1,4 +1,4 @@
-// base-oracle-network/scripts/forecast.js
+
 const { ethers } = require("hardhat");
 const fs = require("fs");
 
