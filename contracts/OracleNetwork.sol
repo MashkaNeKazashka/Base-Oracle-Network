@@ -81,7 +81,7 @@ contract OracleNetwork is Ownable {
         require(oracleNodes[msg.sender].isActive, "Oracle not active");
         require(oracleNodes[msg.sender].stakeAmount >= minStakeAmount, "Insufficient stake");
         
-        // Update oracle reputation based on confidence
+        
         if (confidence > 90) {
             oracleNodes[msg.sender].reputationScore = 
                 oracleNodes[msg.sender].reputationScore + 1;
