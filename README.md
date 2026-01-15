@@ -1,6 +1,6 @@
 Base Oracle Network
 
-📋 Project Description
+📋 Project Description 
 
 Base Oracle Network is a decentralized oracle network that provides reliable and secure price feeds and data services for DeFi applications on the Base network. The network aggregates data from multiple sources to ensure accuracy and prevent manipulation.
 
