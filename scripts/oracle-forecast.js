@@ -8,7 +8,7 @@ async function generateOracleForecast() {
   const oracleAddress = "0x...";
   const oracle = await ethers.getContractAt("OracleNetworkV2", oracleAddress);
   
-  // Получение прогноза
+
   const forecast = {
     timestamp: new Date().toISOString(),
     oracleAddress: oracleAddress,
