@@ -19,7 +19,7 @@ async function generateOracleForecast() {
     recommendations: []
   };
   
-  // Текущая производительность
+
   const currentPerformance = await oracle.getCurrentPerformance();
   forecast.currentPerformance = {
     uptime: currentPerformance.uptime.toString(),
