@@ -31,7 +31,7 @@ async function analyzeOracleNetworkPerformance() {
       gasEfficiency: performanceMetrics.gasEfficiency.toString()
     };
     
-    // Оценки эффективности
+
     const efficiencyScores = await oracle.getEfficiencyScores();
     performanceReport.efficiencyScores = {
       oracleEfficiency: efficiencyScores.oracleEfficiency.toString(),
