@@ -20,7 +20,7 @@ async function analyzeOracleNetworkPerformance() {
   };
   
   try {
-    // Метрики производительности
+
     const performanceMetrics = await oracle.getPerformanceMetrics();
     performanceReport.performanceMetrics = {
       responseTime: performanceMetrics.responseTime.toString(),
