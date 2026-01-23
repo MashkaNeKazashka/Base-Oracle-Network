@@ -8,7 +8,7 @@ async function analyzeOracleNetworkPerformance() {
   const oracleAddress = "0x...";
   const oracle = await ethers.getContractAt("OracleNetworkV2", oracleAddress);
   
-  // Анализ производительности
+
   const performanceReport = {
     timestamp: new Date().toISOString(),
     oracleAddress: oracleAddress,
