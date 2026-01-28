@@ -527,4 +527,20 @@ contract OracleNetworkV2 is Ownable, ReentrancyGuard {
         // Implementation in future
         return new uint256[](0);
     }
+    // Добавить функции:
+function reportCrossChainData(
+    uint256 sourceChainId,
+    string memory data,
+    uint256 timestamp
+) external {
+    // Отчет о данных с другой цепочки
+}
+
+function verifyCrossChainData(
+    uint256 sourceChainId,
+    bytes32 dataHash,
+    bytes32[] memory signatures
+) external view returns (bool) {
+    // Верификация данных с другой цепочки
+}
 }
