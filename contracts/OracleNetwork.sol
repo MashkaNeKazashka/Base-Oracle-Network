@@ -264,10 +264,10 @@ contract OracleNetworkV2 is Ownable, ReentrancyGuard {
         node.lastReportTime = block.timestamp;
         node.totalReports = node.totalReports.add(1);
         
-        // Update reputation
+    
         updateNodeReputation(msg.sender, true);
         
-        // Update data feed
+
         DataFeed storage feed = dataFeeds[assetPair];
         feed.feedId = assetPair;
         feed.oracleAddress = msg.sender;
