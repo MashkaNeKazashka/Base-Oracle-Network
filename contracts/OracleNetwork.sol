@@ -543,4 +543,146 @@ function verifyCrossChainData(
 ) external view returns (bool) {
     // Верификация данных с другой цепочки
 }
+// Добавить структуры:
+struct CrossChainVerification {
+    uint256 chainId;
+    bytes32 dataHash;
+    uint256 timestamp;
+    uint256 verificationCount;
+    address[] verifiers;
+    bool verified;
+    uint256 confidenceScore;
+}
+
+struct DataVerification {
+    bytes32 dataHash;
+    uint256 timestamp;
+    address[] reporters;
+    uint256 reporterCount;
+    uint256 verificationThreshold;
+    bool confirmed;
+    uint256 confidence;
+    string sourceChain;
+}
+
+// Добавить маппинги:
+mapping(bytes32 => CrossChainVerification) public crossChainVerifications;
+mapping(bytes32 => DataVerification) public dataVerifications;
+
+// Добавить события:
+event DataVerified(
+    bytes32 indexed dataHash,
+    uint256 chainId,
+    uint256 confidence,
+    uint256 timestamp
+);
+
+event CrossChainVerificationRequested(
+    bytes32 indexed dataHash,
+    uint256 chainId,
+    uint256 timestamp
+);
+
+event VerificationConfirmed(
+    bytes32 indexed dataHash,
+    uint256 verificationCount,
+    uint256 confidence,
+    bool success
+);
+
+// Добавить функции:
+function requestCrossChainVerification(
+    bytes32 dataHash,
+    uint256 chainId,
+    string memory sourceChain
+) external {
+    require(chainId != 0, "Invalid chain ID");
+    
+    CrossChainVerification storage verification = crossChainVerifications[dataHash];
+    verification.chainId = chainId;
+    verification.dataHash = dataHash;
+    verification.timestamp = block.timestamp;
+    verification.verificationCount = 0;
+    verification.verified = false;
+    verification.confidenceScore = 0;
+    
+    // Add to verifiers array
+    verification.verifiers.push(msg.sender);
+    
+    emit CrossChainVerificationRequested(dataHash, chainId, block.timestamp);
+}
+
+function verifyDataCrossChain(
+    bytes32 dataHash,
+    uint256 chainId,
+    uint256 confidence,
+    bytes32[] memory signatures
+) external {
+    CrossChainVerification storage verification = crossChainVerifications[dataHash];
+    require(verification.chainId == chainId, "Chain ID mismatch");
+    require(verification.dataHash == dataHash, "Data hash mismatch");
+    require(!verification.verified, "Already verified");
+    
+    // Verify signatures (simplified)
+    verification.verificationCount++;
+    verification.confidenceScore = (verification.confidenceScore + confidence) / 2;
+    verification.verifiers.push(msg.sender);
+    
+    // Check if verification threshold reached
+    if (verification.verificationCount >= 3) { // Simplified threshold
+        verification.verified = true;
+        emit DataVerified(dataHash, chainId, confidence, block.timestamp);
+    }
+    
+    emit VerificationConfirmed(dataHash, verification.verificationCount, confidence, verification.verified);
+}
+
+function confirmDataVerification(
+    bytes32 dataHash,
+    uint256 confidence,
+    string memory sourceChain
+) external {
+    DataVerification storage verification = dataVerifications[dataHash];
+    verification.dataHash = dataHash;
+    verification.timestamp = block.timestamp;
+    verification.reporters.push(msg.sender);
+    verification.reporterCount++;
+    verification.verificationThreshold = 3; // Simplified
+    verification.confirmed = false;
+    verification.confidence = confidence;
+    verification.sourceChain = sourceChain;
+    
+    // Check if enough confirmations
+    if (verification.reporterCount >= verification.verificationThreshold) {
+        verification.confirmed = true;
+        emit VerificationConfirmed(dataHash, verification.reporterCount, confidence, true);
+    }
+}
+
+function getCrossChainVerification(bytes32 dataHash) external view returns (CrossChainVerification memory) {
+    return crossChainVerifications[dataHash];
+}
+
+function getDataVerification(bytes32 dataHash) external view returns (DataVerification memory) {
+    return dataVerifications[dataHash];
+}
+
+function getVerificationStats() external view returns (
+    uint256 totalVerifications,
+    uint256 confirmedVerifications,
+    uint256 pendingVerifications,
+    uint256 averageConfidence
+) {
+    // Implementation would return verification statistics
+    return (0, 0, 0, 0);
+}
+
+function verifyDataWithSignature(
+    bytes32 dataHash,
+    bytes32 signature,
+    address signer
+) external view returns (bool) {
+    // Simplified signature verification
+    return true;
+}
 }
