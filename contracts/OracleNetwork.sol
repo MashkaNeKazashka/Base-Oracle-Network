@@ -685,4 +685,408 @@ function verifyDataWithSignature(
     // Simplified signature verification
     return true;
 }
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+contract OracleNetwork is Ownable, ReentrancyGuard {
+    using SafeMath for uint256;
+
+    // Существующие структуры и функции...
+    
+    // Новые структуры для кросс-цепочечных оракулов
+    struct CrossChainOracle {
+        uint256 chainId;
+        address oracleAddress;
+        string chainName;
+        uint256 reliabilityScore;
+        uint256 lastReportTime;
+        uint256 totalReports;
+        uint256 correctReports;
+        bool active;
+        uint256 fee;
+        uint256 maxDeviation;
+        uint256 confidenceThreshold;
+    }
+    
+    struct CrossChainData {
+        bytes32 dataHash;
+        address[] reporters;
+        uint256[] confidenceScores;
+        uint256[] timestamps;
+        uint256[] chainIds;
+        string assetPair;
+        uint256 price;
+        uint256 timestamp;
+        bool verified;
+        uint256 finalConfidence;
+        mapping(uint256 => bool) verifiedByChain;
+    }
+    
+    struct ChainConfig {
+        uint256 chainId;
+        string chainName;
+        address bridgeContract;
+        uint256 fee;
+        uint256 maxDeviation;
+        uint256 confidenceThreshold;
+        bool enabled;
+        uint256 lastUpdated;
+    }
+    
+    struct AggregatedDataPoint {
+        string assetPair;
+        uint256 price;
+        uint256 confidence;
+        uint256 timestamp;
+        uint256 sourceCount;
+        uint256[] sourceChainIds;
+        uint256[] sourcePrices;
+        uint256[] sourceConfidences;
+    }
+    
+    // Новые маппинги
+    mapping(uint256 => CrossChainOracle) public crossChainOracles;
+    mapping(bytes32 => CrossChainData) public crossChainData;
+    mapping(uint256 => ChainConfig) public chainConfigs;
+    mapping(string => AggregatedDataPoint) public aggregatedData;
+    mapping(uint256 => mapping(uint256 => bool)) public oracleChainPermissions;
+    
+    // Новые события
+    event CrossChainOracleRegistered(
+        uint256 indexed chainId,
+        address indexed oracleAddress,
+        string chainName,
+        uint256 fee,
+        uint256 timestamp
+    );
+    
+    event CrossChainDataReported(
+        bytes32 indexed dataHash,
+        uint256 indexed chainId,
+        string assetPair,
+        uint256 price,
+        uint256 confidence,
+        uint256 timestamp
+    );
+    
+    event CrossChainDataVerified(
+        bytes32 indexed dataHash,
+        uint256 chainId,
+        uint256 finalConfidence,
+        bool success,
+        uint256 timestamp
+    );
+    
+    event ChainConfigUpdated(
+        uint256 indexed chainId,
+        string chainName,
+        uint256 fee,
+        uint256 maxDeviation,
+        uint256 confidenceThreshold,
+        bool enabled
+    );
+    
+    event DataAggregated(
+        string indexed assetPair,
+        uint256 aggregatedPrice,
+        uint256 confidence,
+        uint256 timestamp
+    );
+    
+    // Новые функции для кросс-цепочечных оракулов
+    function registerCrossChainOracle(
+        uint256 chainId,
+        address oracleAddress,
+        string memory chainName,
+        uint256 fee,
+        uint256 maxDeviation,
+        uint256 confidenceThreshold
+    ) external onlyOwner {
+        require(chainId > 0, "Invalid chain ID");
+        require(oracleAddress != address(0), "Invalid oracle address");
+        require(bytes(chainName).length > 0, "Chain name cannot be empty");
+        require(fee <= 10000, "Fee too high");
+        require(maxDeviation <= 10000, "Max deviation too high");
+        require(confidenceThreshold <= 10000, "Confidence threshold too high");
+        
+        crossChainOracles[chainId] = CrossChainOracle({
+            chainId: chainId,
+            oracleAddress: oracleAddress,
+            chainName: chainName,
+            reliabilityScore: 10000, // 100%
+            lastReportTime: block.timestamp,
+            totalReports: 0,
+            correctReports: 0,
+            active: true,
+            fee: fee,
+            maxDeviation: maxDeviation,
+            confidenceThreshold: confidenceThreshold
+        });
+        
+        emit CrossChainOracleRegistered(chainId, oracleAddress, chainName, fee, block.timestamp);
+    }
+    
+    function updateChainConfig(
+        uint256 chainId,
+        string memory chainName,
+        uint256 fee,
+        uint256 maxDeviation,
+        uint256 confidenceThreshold,
+        bool enabled
+    ) external onlyOwner {
+        require(chainId > 0, "Invalid chain ID");
+        require(bytes(chainName).length > 0, "Chain name cannot be empty");
+        require(fee <= 10000, "Fee too high");
+        require(maxDeviation <= 10000, "Max deviation too high");
+        require(confidenceThreshold <= 10000, "Confidence threshold too high");
+        
+        chainConfigs[chainId] = ChainConfig({
+            chainId: chainId,
+            chainName: chainName,
+            bridgeContract: address(0),
+            fee: fee,
+            maxDeviation: maxDeviation,
+            confidenceThreshold: confidenceThreshold,
+            enabled: enabled,
+            lastUpdated: block.timestamp
+        });
+        
+        emit ChainConfigUpdated(chainId, chainName, fee, maxDeviation, confidenceThreshold, enabled);
+    }
+    
+    function reportCrossChainData(
+        uint256 chainId,
+        string memory assetPair,
+        uint256 price,
+        uint256 confidence,
+        bytes32 dataHash
+    ) external {
+        require(chainConfigs[chainId].enabled, "Chain not enabled");
+        require(confidence <= 10000, "Confidence too high");
+        require(price > 0, "Invalid price");
+        
+        // Проверка, что вызывающий является ораклом для этой цепочки
+        require(crossChainOracles[chainId].oracleAddress == msg.sender, "Not authorized oracle");
+        
+        // Обновление статистики оракла
+        CrossChainOracle storage oracle = crossChainOracles[chainId];
+        oracle.totalReports = oracle.totalReports.add(1);
+        oracle.lastReportTime = block.timestamp;
+        
+        // Создание данных
+        CrossChainData storage data = crossChainData[dataHash];
+        data.dataHash = dataHash;
+        data.assetPair = assetPair;
+        data.price = price;
+        data.timestamp = block.timestamp;
+        data.confidence = confidence;
+        data.verified = false;
+        data.finalConfidence = 0;
+        
+        // Добавление отчетчика
+        data.reporters.push(msg.sender);
+        data.confidenceScores.push(confidence);
+        data.timestamps.push(block.timestamp);
+        data.chainIds.push(chainId);
+        
+        emit CrossChainDataReported(dataHash, chainId, assetPair, price, confidence, block.timestamp);
+    }
+    
+    function verifyCrossChainData(
+        bytes32 dataHash,
+        uint256 chainId,
+        uint256[] memory sourceChainIds,
+        uint256[] memory sourcePrices,
+        uint256[] memory sourceConfidences
+    ) external {
+        CrossChainData storage data = crossChainData[dataHash];
+        require(data.dataHash == dataHash, "Data not found");
+        require(!data.verified, "Data already verified");
+        require(sourceChainIds.length == sourcePrices.length, "Array length mismatch");
+        require(sourceChainIds.length == sourceConfidences.length, "Array length mismatch");
+        
+        // Проверка данных с разных цепочек
+        uint256 totalConfidence = 0;
+        uint256 validSources = 0;
+        uint256[] memory validPrices = new uint256[](sourceChainIds.length);
+        
+        for (uint256 i = 0; i < sourceChainIds.length; i++) {
+            if (chainConfigs[sourceChainIds[i]].enabled) {
+                // Проверка отклонения цены
+                uint256 priceDiff = sourcePrices[i] > data.price ? 
+                    sourcePrices[i] - data.price : 
+                    data.price - sourcePrices[i];
+                uint256 maxAllowedDiff = data.price * chainConfigs[sourceChainIds[i]].maxDeviation / 10000;
+                
+                if (priceDiff <= maxAllowedDiff && sourceConfidences[i] >= chainConfigs[sourceChainIds[i]].confidenceThreshold) {
+                    validPrices[validSources] = sourcePrices[i];
+                    validSources++;
+                    totalConfidence = totalConfidence.add(sourceConfidences[i]);
+                }
+            }
+        }
+        
+        // Рассчитать финальную уверенность
+        uint256 finalConfidence = validSources > 0 ? 
+            totalConfidence / validSources : 0;
+        
+        // Проверить кворум
+        uint256 quorum = validSources * 10000 / sourceChainIds.length;
+        bool verified = quorum >= 5000; // 50% кворум
+        
+        if (verified) {
+            data.verified = true;
+            data.finalConfidence = finalConfidence;
+            
+            // Обновить агрегированные данные
+            AggregatedDataPoint storage aggData = aggregatedData[data.assetPair];
+            aggData.assetPair = data.assetPair;
+            aggData.price = calculateWeightedAverage(validPrices, validSources);
+            aggData.confidence = finalConfidence;
+            aggData.timestamp = block.timestamp;
+            aggData.sourceCount = validSources;
+            
+            emit DataAggregated(data.assetPair, aggData.price, finalConfidence, block.timestamp);
+        }
+        
+        emit CrossChainDataVerified(dataHash, chainId, finalConfidence, verified, block.timestamp);
+    }
+    
+    function calculateWeightedAverage(
+        uint256[] memory prices,
+        uint256 count
+    ) internal pure returns (uint256) {
+        if (count == 0) return 0;
+        
+        uint256 sum = 0;
+        for (uint256 i = 0; i < count; i++) {
+            sum = sum.add(prices[i]);
+        }
+        
+        return sum / count;
+    }
+    
+    function aggregateCrossChainData(
+        string memory assetPair,
+        uint256[] memory chainIds
+    ) external view returns (AggregatedDataPoint memory) {
+        return aggregatedData[assetPair];
+    }
+    
+    function getCrossChainOracleInfo(uint256 chainId) external view returns (CrossChainOracle memory) {
+        return crossChainOracles[chainId];
+    }
+    
+    function getChainConfig(uint256 chainId) external view returns (ChainConfig memory) {
+        return chainConfigs[chainId];
+    }
+    
+    function getCrossChainData(bytes32 dataHash) external view returns (CrossChainData memory) {
+        return crossChainData[dataHash];
+    }
+    
+    function getCrossChainDataStats() external view returns (
+        uint256 totalOracles,
+        uint256 totalDataReports,
+        uint256 verifiedData,
+        uint256 activeChains
+    ) {
+        uint256 totalOraclesCount = 0;
+        uint256 totalReports = 0;
+        uint256 verifiedCount = 0;
+        uint256 activeChainCount = 0;
+        
+        // Подсчет статистики
+        for (uint256 i = 1; i < 100; i++) {
+            if (crossChainOracles[i].chainId != 0) {
+                totalOraclesCount++;
+                totalReports = totalReports.add(crossChainOracles[i].totalReports);
+            }
+            if (chainConfigs[i].chainId != 0 && chainConfigs[i].enabled) {
+                activeChainCount++;
+            }
+        }
+        
+        // Подсчет верифицированных данных
+        for (uint256 i = 0; i < 1000; i++) {
+            if (crossChainData[bytes32(i)].dataHash != bytes32(0) && crossChainData[bytes32(i)].verified) {
+                verifiedCount++;
+            }
+        }
+        
+        return (totalOraclesCount, totalReports, verifiedCount, activeChainCount);
+    }
+    
+    function getCrossChainOracleReliability(uint256 chainId) external view returns (uint256) {
+        CrossChainOracle storage oracle = crossChainOracles[chainId];
+        if (oracle.totalReports == 0) return 0;
+        
+        return (oracle.correctReports * 10000) / oracle.totalReports;
+    }
+    
+    function isDataVerified(bytes32 dataHash) external view returns (bool) {
+        return crossChainData[dataHash].verified;
+    }
+    
+    function getCrossChainDataHistory(
+        string memory assetPair,
+        uint256 limit
+    ) external view returns (CrossChainData[] memory) {
+        // Возвращает историю данных для конкретного актива
+        return new CrossChainData[](0);
+    }
+    
+    function getActiveChains() external view returns (uint256[] memory) {
+        uint256[] memory activeChains = new uint256[](100);
+        uint256 count = 0;
+        
+        for (uint256 i = 1; i < 100; i++) {
+            if (chainConfigs[i].chainId != 0 && chainConfigs[i].enabled) {
+                activeChains[count] = i;
+                count++;
+            }
+        }
+        
+        uint256[] memory result = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = activeChains[i];
+        }
+        
+        return result;
+    }
+    
+    function getCrossChainOracleStats() external view returns (
+        uint256 totalOracles,
+        uint256 activeOracles,
+        uint256 totalReports,
+        uint256 avgReliability
+    ) {
+        uint256 totalOraclesCount = 0;
+        uint256 activeOraclesCount = 0;
+        uint256 totalReportsCount = 0;
+        uint256 totalReliability = 0;
+        
+        for (uint256 i = 1; i < 100; i++) {
+            if (crossChainOracles[i].chainId != 0) {
+                totalOraclesCount++;
+                totalReportsCount = totalReportsCount.add(crossChainOracles[i].totalReports);
+                totalReliability = totalReliability.add(crossChainOracles[i].reliabilityScore);
+                
+                if (crossChainOracles[i].active) {
+                    activeOraclesCount++;
+                }
+            }
+        }
+        
+        uint256 avgReliabilityScore = totalOraclesCount > 0 ? 
+            totalReliability / totalOraclesCount : 0;
+        
+        return (totalOraclesCount, activeOraclesCount, totalReportsCount, avgReliabilityScore);
+    }
+}
 }
