@@ -935,7 +935,7 @@ contract OracleNetwork is Ownable, ReentrancyGuard {
         uint256 finalConfidence = validSources > 0 ? 
             totalConfidence / validSources : 0;
         
-        // Проверить кворум
+   
         uint256 quorum = validSources * 10000 / sourceChainIds.length;
         bool verified = quorum >= 5000; // 50% кворум
         
