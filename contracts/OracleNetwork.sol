@@ -543,7 +543,7 @@ function verifyCrossChainData(
 ) external view returns (bool) {
     // Верификация данных с другой цепочки
 }
-// Добавить структуры:
+
 struct CrossChainVerification {
     uint256 chainId;
     bytes32 dataHash;
