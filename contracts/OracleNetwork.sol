@@ -259,6 +259,13 @@ contract OracleNetworkV2 is Ownable, ReentrancyGuard {
         require(oracleNodes[msg.sender].isActive, "Oracle not active");
         require(confidence <= 10000, "Confidence too high");
         require(price > 0, "Invalid price");
+        require(confidence <= 10000, "Confidence too high");
+        require(price > 0, "Invalid price");
+        require(bytes(assetPair).length > 0, "Empty asset pair");
+    
+    // Добавленная проверка достоверности
+        require(price < type(uint256).max / 1000, "Price too large");
+        require(confidence >= 100, "Confidence too low"); // Минимум 1%
         
         OracleNode storage node = oracleNodes[msg.sender];
         node.lastReportTime = block.timestamp;
@@ -685,18 +692,6 @@ function verifyDataWithSignature(
     // Simplified signature verification
     return true;
 }
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-
-contract OracleNetwork is Ownable, ReentrancyGuard {
-    using SafeMath for uint256;
-
-    // Существующие структуры и функции...
     
     // Новые структуры для кросс-цепочечных оракулов
     struct CrossChainOracle {
@@ -1088,5 +1083,5 @@ contract OracleNetwork is Ownable, ReentrancyGuard {
         
         return (totalOraclesCount, activeOraclesCount, totalReportsCount, avgReliabilityScore);
     }
-}
+
 }
