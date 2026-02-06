@@ -905,7 +905,7 @@ function verifyDataWithSignature(
         require(sourceChainIds.length == sourcePrices.length, "Array length mismatch");
         require(sourceChainIds.length == sourceConfidences.length, "Array length mismatch");
         
-        // Проверка данных с разных цепочек
+   
         uint256 totalConfidence = 0;
         uint256 validSources = 0;
         uint256[] memory validPrices = new uint256[](sourceChainIds.length);
