@@ -597,7 +597,7 @@ event VerificationConfirmed(
     bool success
 );
 
-// Добавить функции:
+
 function requestCrossChainVerification(
     bytes32 dataHash,
     uint256 chainId,
