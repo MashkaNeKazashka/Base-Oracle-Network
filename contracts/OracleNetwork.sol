@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 /*
-  Educational oracle:
+   oracle:
   - Multiple reporters
   - Median price aggregation
 */
