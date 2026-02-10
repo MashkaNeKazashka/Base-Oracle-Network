@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/*
-  Base oracle:
-  - Multiple reporters
-  - Median price aggregation
-*/
+
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
