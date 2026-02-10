@@ -8,7 +8,7 @@ contract OracleNetwork is Ownable {
     address[] public reporters;
 
     uint256 public maxAge = 10 minutes;
-
+ 
     struct Report {
         uint256 price;
         uint256 timestamp;
