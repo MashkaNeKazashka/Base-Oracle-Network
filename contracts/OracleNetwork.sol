@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 
-import "@openzeppelin/contracts/access/Ownable.sol"; 
+
 
 contract OracleNetwork is Ownable {
     mapping(address => bool) public isReporter;
