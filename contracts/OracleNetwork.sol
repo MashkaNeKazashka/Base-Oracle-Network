@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-
-
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract OracleNetwork is Ownable {
     mapping(address => bool) public isReporter;
     address[] public reporters;
 
+    // Improvement: freshness window
     uint256 public maxAge = 10 minutes;
- 
+
     struct Report {
         uint256 price;
         uint256 timestamp;
@@ -16,22 +17,37 @@ contract OracleNetwork is Ownable {
 
     mapping(bytes32 => mapping(address => Report)) public reports;
 
+    event ReporterAdded(address reporter);
+    event ReporterRemoved(address reporter);
     event PriceReported(bytes32 indexed assetId, address indexed reporter, uint256 price, uint256 timestamp);
     event MaxAgeUpdated(uint256 maxAge);
 
     constructor(address[] memory _reporters) Ownable(msg.sender) {
+        require(_reporters.length > 0, "no reporters");
         for (uint256 i = 0; i < _reporters.length; i++) {
-            address r = _reporters[i];
-            require(r != address(0), "zero");
-            require(!isReporter[r], "dup");
-            isReporter[r] = true;
-            reporters.push(r);
+            _addReporter(_reporters[i]);
         }
     }
 
     function setMaxAge(uint256 _maxAge) external onlyOwner {
         maxAge = _maxAge;
         emit MaxAgeUpdated(_maxAge);
+    }
+
+    function addReporter(address r) external onlyOwner { _addReporter(r); }
+
+    function _addReporter(address r) internal {
+        require(r != address(0), "zero");
+        require(!isReporter[r], "dup");
+        isReporter[r] = true;
+        reporters.push(r);
+        emit ReporterAdded(r);
+    }
+
+    function removeReporter(address r) external onlyOwner {
+        require(isReporter[r], "not reporter");
+        isReporter[r] = false;
+        emit ReporterRemoved(r);
     }
 
     function report(bytes32 assetId, uint256 price) external {
@@ -58,7 +74,9 @@ contract OracleNetwork is Ownable {
 
         for (uint256 i = 0; i < k; i++) {
             uint256 minI = i;
-            for (uint256 j = i + 1; j < k; j++) if (vals[j] < vals[minI]) minI = j;
+            for (uint256 j = i + 1; j < k; j++) {
+                if (vals[j] < vals[minI]) minI = j;
+            }
             (vals[i], vals[minI]) = (vals[minI], vals[i]);
         }
 
