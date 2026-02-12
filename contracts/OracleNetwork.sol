@@ -1,13 +1,16 @@
-
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract OracleNetwork is Ownable {
     mapping(address => bool) public isReporter;
     address[] public reporters;
 
-    // Improvement: freshness window
     uint256 public maxAge = 10 minutes;
+
+    // Improvement
+    uint256 public minFreshReports = 3;
 
     struct Report {
         uint256 price;
@@ -20,17 +23,22 @@ contract OracleNetwork is Ownable {
     event ReporterRemoved(address reporter);
     event PriceReported(bytes32 indexed assetId, address indexed reporter, uint256 price, uint256 timestamp);
     event MaxAgeUpdated(uint256 maxAge);
+    event MinFreshReportsUpdated(uint256 minFreshReports);
 
     constructor(address[] memory _reporters) Ownable(msg.sender) {
         require(_reporters.length > 0, "no reporters");
-        for (uint256 i = 0; i < _reporters.length; i++) {
-            _addReporter(_reporters[i]);
-        }
+        for (uint256 i = 0; i < _reporters.length; i++) _addReporter(_reporters[i]);
     }
 
     function setMaxAge(uint256 _maxAge) external onlyOwner {
         maxAge = _maxAge;
         emit MaxAgeUpdated(_maxAge);
+    }
+
+    function setMinFreshReports(uint256 n) external onlyOwner {
+        require(n > 0, "n=0");
+        minFreshReports = n;
+        emit MinFreshReportsUpdated(n);
     }
 
     function addReporter(address r) external onlyOwner { _addReporter(r); }
@@ -69,13 +77,11 @@ contract OracleNetwork is Ownable {
             if (block.timestamp - rep.timestamp > maxAge) continue;
             vals[k++] = rep.price;
         }
-        require(k >= 3, "not enough fresh");
+        require(k >= minFreshReports, "not enough fresh");
 
         for (uint256 i = 0; i < k; i++) {
             uint256 minI = i;
-            for (uint256 j = i + 1; j < k; j++) {
-                if (vals[j] < vals[minI]) minI = j;
-            }
+            for (uint256 j = i + 1; j < k; j++) if (vals[j] < vals[minI]) minI = j;
             (vals[i], vals[minI]) = (vals[minI], vals[i]);
         }
 
