@@ -8,7 +8,7 @@ contract OracleNetwork is Ownable {
     uint256 public maxAge = 10 minutes;
 
     // Improvement
-    uint256 public minFreshReports = 3;
+
 
     struct Report {
         uint256 price;
