@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-
 contract OracleNetwork is Ownable {
     mapping(address => bool) public isReporter;
     address[] public reporters;
