@@ -1,89 +1,100 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-    mapping(address => bool) public isReporter;
-    address[] public reporters;
+interface IStakedToken is IERC20 {
+    function mint(address to, uint256 amount) external;
+    function burn(address from, uint256 amount) external;
+}
 
-    uint256 public maxAge = 10 minutes;
+contract LiquidStaking is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
+    IERC20 public immutable underlying;
+    IStakedToken public immutable stToken;
+
+    uint256 public cooldown = 2 days;
+
+    struct RedeemRequest {
+        uint256 amount;
+        uint256 readyAt;
+    }
+    mapping(address => RedeemRequest) public redeems;
+
+    event Deposited(address indexed user, uint256 amount);
+    event RedeemRequested(address indexed user, uint256 amount, uint256 readyAt);
+    event RedeemCancelled(address indexed user, uint256 amount);
+    event Redeemed(address indexed user, uint256 amount);
+
+    event Recovered(address indexed token, address indexed to, uint256 amount);
+
+    constructor(address _underlying, address _stToken) Ownable(msg.sender) {
+        require(_underlying != address(0) && _stToken != address(0), "zero");
+        underlying = IERC20(_underlying);
+        stToken = IStakedToken(_stToken);
+    }
+
+    function setCooldown(uint256 _cooldown) external onlyOwner {
+        cooldown = _cooldown;
+    }
+
+    function deposit(uint256 amount) external nonReentrant {
+        require(amount > 0, "amount=0");
+        underlying.safeTransferFrom(msg.sender, address(this), amount);
+        stToken.mint(msg.sender, amount);
+        emit Deposited(msg.sender, amount);
+    }
+
+    function requestRedeem(uint256 amount) external nonReentrant {
+        require(amount > 0, "amount=0");
+        RedeemRequest storage r = redeems[msg.sender];
+        require(r.amount == 0, "pending");
+
+        IERC20(address(stToken)).safeTransferFrom(msg.sender, address(this), amount);
+
+        r.amount = amount;
+        r.readyAt = block.timestamp + cooldown;
+
+        emit RedeemRequested(msg.sender, amount, r.readyAt);
+    }
+
+    function cancelRedeem() external nonReentrant {
+        RedeemRequest storage r = redeems[msg.sender];
+        require(r.amount > 0, "no request");
+
+        uint256 amount = r.amount;
+        r.amount = 0;
+        r.readyAt = 0;
+
+        IERC20(address(stToken)).safeTransfer(msg.sender, amount);
+        emit RedeemCancelled(msg.sender, amount);
+    }
+
+    function redeem() external nonReentrant {
+        RedeemRequest storage r = redeems[msg.sender];
+        require(r.amount > 0, "no request");
+        require(block.timestamp >= r.readyAt, "not ready");
+
+        uint256 amount = r.amount;
+        r.amount = 0;
+        r.readyAt = 0;
+
+        stToken.burn(address(this), amount);
+        underlying.safeTransfer(msg.sender, amount);
+
+        emit Redeemed(msg.sender, amount);
+    }
 
     // Improvement
-
-
-    struct Report {
-        uint256 price;
-        uint256 timestamp;
-    }
-
-    mapping(bytes32 => mapping(address => Report)) public reports;
-
-    event ReporterAdded(address reporter);
-    event ReporterRemoved(address reporter);
-    event PriceReported(bytes32 indexed assetId, address indexed reporter, uint256 price, uint256 timestamp);
-    event MaxAgeUpdated(uint256 maxAge);
-    event MinFreshReportsUpdated(uint256 minFreshReports);
-
-    constructor(address[] memory _reporters) Ownable(msg.sender) {
-        require(_reporters.length > 0, "no reporters");
-        for (uint256 i = 0; i < _reporters.length; i++) _addReporter(_reporters[i]);
-    }
-
-    function setMaxAge(uint256 _maxAge) external onlyOwner {
-        maxAge = _maxAge;
-        emit MaxAgeUpdated(_maxAge);
-    }
-
-    function setMinFreshReports(uint256 n) external onlyOwner {
-        require(n > 0, "n=0");
-        minFreshReports = n;
-        emit MinFreshReportsUpdated(n);
-    }
-
-    function addReporter(address r) external onlyOwner { _addReporter(r); }
-
-    function _addReporter(address r) internal {
-        require(r != address(0), "zero");
-        require(!isReporter[r], "dup");
-        isReporter[r] = true;
-        reporters.push(r);
-        emit ReporterAdded(r);
-    }
-
-    function removeReporter(address r) external onlyOwner {
-        require(isReporter[r], "not reporter");
-        isReporter[r] = false;
-        emit ReporterRemoved(r);
-    }
-
-    function report(bytes32 assetId, uint256 price) external {
-        require(isReporter[msg.sender], "not reporter");
-        require(price > 0, "price=0");
-        reports[assetId][msg.sender] = Report(price, block.timestamp);
-        emit PriceReported(assetId, msg.sender, price, block.timestamp);
-    }
-
-    function getMedian(bytes32 assetId) external view returns (uint256) {
-        uint256 n = reporters.length;
-        uint256[] memory vals = new uint256[](n);
-        uint256 k;
-
-        for (uint256 i = 0; i < n; i++) {
-            address r = reporters[i];
-            if (!isReporter[r]) continue;
-            Report memory rep = reports[assetId][r];
-            if (rep.price == 0) continue;
-            if (block.timestamp - rep.timestamp > maxAge) continue;
-            vals[k++] = rep.price;
-        }
-        require(k >= minFreshReports, "not enough fresh");
-
-        for (uint256 i = 0; i < k; i++) {
-            uint256 minI = i;
-            for (uint256 j = i + 1; j < k; j++) if (vals[j] < vals[minI]) minI = j;
-            (vals[i], vals[minI]) = (vals[minI], vals[i]);
-        }
-
-        if (k % 2 == 1) return vals[k / 2];
-        return (vals[(k / 2) - 1] + vals[k / 2]) / 2;
+    function recoverERC20(address token, address to, uint256 amount) external onlyOwner {
+        require(token != address(underlying), "no underlying");
+        require(token != address(stToken), "no stToken");
+        require(to != address(0), "to=0");
+        IERC20(token).safeTransfer(to, amount);
+        emit Recovered(token, to, amount);
     }
 }
