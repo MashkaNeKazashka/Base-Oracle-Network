@@ -8,7 +8,7 @@ async function main() {
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
-  // Деплой токена
+
   const OracleToken = await ethers.getContractFactory("ERC20Token");
   const oracleToken = await OracleToken.deploy("Oracle Token", "ORCL");
   await oracleToken.deployed();
