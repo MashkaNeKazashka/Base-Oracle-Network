@@ -1,44 +1,55 @@
+const fs = require("fs");
+const path = require("path");
+require("dotenv").config();
 
-const { ethers } = require("hardhat");
-
-async function main() {
-  console.log("Deploying Base Oracle Network...");
-  
-  const [deployer] = await ethers.getSigners();
-  console.log("Deploying contracts with the account:", deployer.address);
-  console.log("Account balance:", (await deployer.getBalance()).toString());
-
-
-  const OracleToken = await ethers.getContractFactory("ERC20Token");
-  const oracleToken = await OracleToken.deploy("Oracle Token", "ORCL");
-  await oracleToken.deployed();
-
-
-  const OracleNetwork = await ethers.getContractFactory("OracleNetworkV2");
-  const oracleNetwork = await OracleNetwork.deploy(
-    ethers.utils.parseEther("100"), // 100 tokens minimum stake
-    ethers.utils.parseEther("0.1")  // 0.1 ETH request fee
-  );
-
-  await oracleNetwork.deployed();
-
-  console.log("Base Oracle Network deployed to:", oracleNetwork.address);
-  console.log("Oracle Token deployed to:", oracleToken.address);
-  
-  // Сохраняем адреса
-  const fs = require("fs");
-  const data = {
-    oracleNetwork: oracleNetwork.address,
-    oracleToken: oracleToken.address,
-    owner: deployer.address
-  };
-  
-  fs.writeFileSync("./config/deployment.json", JSON.stringify(data, null, 2));
+function parseList(v) {
+  return (v || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch(error => {
-    console.error(error);
-    process.exit(1);
-  });
+async function main() {
+  const [deployer] = await ethers.getSigners();
+  console.log("Deployer:", deployer.address);
+
+  let reporters = parseList(process.env.REPORTERS);
+  if (reporters.length === 0) reporters = [deployer.address];
+
+  const Oracle = await ethers.getContractFactory("OracleNetwork");
+  const oracle = await Oracle.deploy(reporters);
+  await oracle.deployed();
+
+  console.log("OracleNetwork:", oracle.address);
+
+  // Optional: deploy DataFeed if it needs oracle address in constructor (set DATAFEED_USES_ORACLE=1)
+  let dataFeedAddr = "";
+  const uses = process.env.DATAFEED_USES_ORACLE === "1";
+  if (uses) {
+    const DataFeed = await ethers.getContractFactory("DataFeed");
+    const df = await DataFeed.deploy(oracle.address);
+    await df.deployed();
+    dataFeedAddr = df.address;
+    console.log("DataFeed:", dataFeedAddr);
+  }
+
+  const out = {
+    network: hre.network.name,
+    chainId: (await ethers.provider.getNetwork()).chainId,
+    deployer: deployer.address,
+    contracts: {
+      OracleNetwork: oracle.address,
+      DataFeed: dataFeedAddr || null
+    },
+    params: { reporters }
+  };
+
+  const outPath = path.join(__dirname, "..", "deployments.json");
+  fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
+  console.log("Saved:", outPath);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
