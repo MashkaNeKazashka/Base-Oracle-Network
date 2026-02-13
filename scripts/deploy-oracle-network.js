@@ -22,7 +22,7 @@ async function main() {
 
   console.log("OracleNetwork:", oracle.address);
 
-  // Optional: deploy DataFeed if it needs oracle address in constructor (set DATAFEED_USES_ORACLE=1)
+  
   let dataFeedAddr = "";
   const uses = process.env.DATAFEED_USES_ORACLE === "1";
   if (uses) {
