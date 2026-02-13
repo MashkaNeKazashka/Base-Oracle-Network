@@ -13,7 +13,7 @@ async function main() {
   const oracleToken = await OracleToken.deploy("Oracle Token", "ORCL");
   await oracleToken.deployed();
 
-  // Деплой Oracle Network контракта
+
   const OracleNetwork = await ethers.getContractFactory("OracleNetworkV2");
   const oracleNetwork = await OracleNetwork.deploy(
     ethers.utils.parseEther("100"), // 100 tokens minimum stake
