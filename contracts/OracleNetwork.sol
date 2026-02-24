@@ -40,7 +40,7 @@ contract LiquidStaking is Ownable, ReentrancyGuard {
 
     function setCooldown(uint256 _cooldown) external onlyOwner {
         cooldown = _cooldown;
-    }
+    } 
 
     function deposit(uint256 amount) external nonReentrant {
         require(amount > 0, "amount=0");
