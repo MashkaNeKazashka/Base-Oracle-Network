@@ -89,7 +89,6 @@ contract LiquidStaking is Ownable, ReentrancyGuard {
         emit Redeemed(msg.sender, amount);
     }
 
-
     function recoverERC20(address token, address to, uint256 amount) external onlyOwner {
         require(token != address(underlying), "no underlying");
         require(token != address(stToken), "no stToken");
