@@ -97,4 +97,7 @@ contract LiquidStaking is Ownable, ReentrancyGuard {
         IERC20(token).safeTransfer(to, amount);
         emit Recovered(token, to, amount);
     }
+    function removeReporter(address reporter) external onlyOwner {
+    reporters[reporter] = false;
+}
 }
