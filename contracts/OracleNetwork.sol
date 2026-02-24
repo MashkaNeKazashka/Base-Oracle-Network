@@ -99,5 +99,5 @@ contract LiquidStaking is Ownable, ReentrancyGuard {
     }
     function removeReporter(address reporter) external onlyOwner {
     reporters[reporter] = false;
-}
+    }
 }
